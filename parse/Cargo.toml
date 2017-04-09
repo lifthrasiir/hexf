@@ -1,0 +1,11 @@
+[package]
+name = "hexf-parse"
+version = "0.1.0"
+authors = ["Kang Seonghoon <public+rust@mearie.org>"]
+
+description = "Hexadecimal float support for Rust (auxiliary crate; see also hexf)"
+homepage = "https://github.com/lifthrasiir/hexf"
+#documentation = "https://docs.rs/hexf/"
+repository = "https://github.com/lifthrasiir/hexf"
+license = "CC0-1.0"
+

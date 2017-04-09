@@ -1,0 +1,19 @@
+[package]
+name = "hexf-impl"
+version = "0.1.0"
+authors = ["Kang Seonghoon <public+rust@mearie.org>"]
+
+description = "Hexadecimal float support for Rust (auxiliary crate; see also hexf)"
+homepage = "https://github.com/lifthrasiir/hexf"
+#documentation = "https://docs.rs/hexf/"
+repository = "https://github.com/lifthrasiir/hexf"
+license = "CC0-1.0"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro-hack = "0.3"
+syn = "0.11"
+hexf-parse = { path = "../parse/" }
+

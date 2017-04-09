@@ -1,0 +1,20 @@
+[package]
+name = "hexf"
+version = "0.1.0"
+authors = ["Kang Seonghoon <public+rust@mearie.org>"]
+
+description = "Hexadecimal float support for Rust"
+homepage = "https://github.com/lifthrasiir/hexf"
+#documentation = "https://docs.rs/hexf/"
+repository = "https://github.com/lifthrasiir/hexf"
+readme = "README.md"
+license = "CC0-1.0"
+
+[workspace]
+members = ["parse/", "impl/"]
+
+[dependencies]
+proc-macro-hack = "0.3"
+hexf-parse = { path = "parse/" }
+hexf-impl = { path = "impl/" }
+
