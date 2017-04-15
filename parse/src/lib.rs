@@ -1,5 +1,25 @@
+//! Parses hexadecimal float literals.
+//! There are two functions `parse_hexf32` and `parse_hexf64` provided for each type.
+//!
+//! ```rust
+//! use hexf_parse::*;
+//! assert_eq!(parse_hexf32("0x1.99999ap-4", false), Ok(0.1f32));
+//! assert_eq!(parse_hexf64("0x1.999999999999ap-4", false), Ok(0.1f64));
+//! ```
+//!
+//! An additional `bool` parameter can be set to true if you want to allow underscores.
+//!
+//! ```rust
+//! use hexf_parse::*;
+//! assert!(parse_hexf64("0x0.1_7p8", false).is_err());
+//! assert_eq!(parse_hexf64("0x0.1_7p8", true), Ok(23.0f64));
+//! ```
+//!
+//! The error is reported via an opaque `ParseHexfError` type.
+
 use std::{fmt, str, f32, f64, isize};
 
+/// An opaque error type from `parse_hexf32` and `parse_hexf64`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseHexfError {
     kind: ParseHexfErrorKind,
@@ -361,11 +381,15 @@ fn test_convert_hexf64() {
     assert_eq!(convert_hexf64(false, 0xffff_ffff_ffff_fc00, 960), Err(INEXACT));
 }
 
+/// Tries to parse a hexadecimal float literal to `f32`.
+/// The underscore is allowed only when `allow_underscore` is true.
 pub fn parse_hexf32(s: &str, allow_underscore: bool) -> Result<f32, ParseHexfError> {
     let (negative, mantissa, exponent) = parse(s.as_bytes(), allow_underscore)?;
     convert_hexf32(negative, mantissa, exponent)
 }
 
+/// Tries to parse a hexadecimal float literal to `f64`.
+/// The underscore is allowed only when `allow_underscore` is true.
 pub fn parse_hexf64(s: &str, allow_underscore: bool) -> Result<f64, ParseHexfError> {
     let (negative, mantissa, exponent) = parse(s.as_bytes(), allow_underscore)?;
     convert_hexf64(negative, mantissa, exponent)

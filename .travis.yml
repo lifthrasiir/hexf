@@ -1,0 +1,19 @@
+language: rust
+sudo: false
+rust:
+  - 1.15.0
+  - stable
+  - beta
+  - nightly
+os:
+  - linux
+  - osx
+matrix:
+  allow_failures:
+    - rust: nightly
+env:
+  global:
+    - LD_LIBRARY_PATH: /usr/local/lib
+script:
+  - cargo test -p hexf-parse -v
+  - cargo test -v

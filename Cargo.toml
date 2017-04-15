@@ -5,7 +5,7 @@ authors = ["Kang Seonghoon <public+rust@mearie.org>"]
 
 description = "Hexadecimal float support for Rust"
 homepage = "https://github.com/lifthrasiir/hexf"
-#documentation = "https://docs.rs/hexf/"
+documentation = "https://docs.rs/hexf/"
 repository = "https://github.com/lifthrasiir/hexf"
 readme = "README.md"
 license = "CC0-1.0"
@@ -14,7 +14,7 @@ license = "CC0-1.0"
 members = ["parse/", "impl/"]
 
 [dependencies]
-proc-macro-hack = "0.3"
-hexf-parse = { path = "parse/" }
-hexf-impl = { path = "impl/" }
+proc-macro-hack = "0.3.3"
+hexf-parse = { version = "0.1.0", path = "parse/" }
+hexf-impl = { version = "0.1.0", path = "impl/" }
 

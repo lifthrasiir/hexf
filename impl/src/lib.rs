@@ -1,8 +1,12 @@
+//! Support library for `hexf`. Do not use directly.
+
 #[macro_use] extern crate proc_macro_hack;
 extern crate syn;
 extern crate hexf_parse;
 
 proc_macro_expr_impl! {
+    /// Support function for `hexf32!` macro. Do not use directly.
+    #[doc(hidden)]
     pub fn hexf32_impl(input: &str) -> String {
         let lit = syn::parse::string(input).expect("hexf32! requires a single string literal");
         match hexf_parse::parse_hexf32(&lit.value, true) {
@@ -13,6 +17,8 @@ proc_macro_expr_impl! {
 }
 
 proc_macro_expr_impl! {
+    /// Support function for `hexf64!` macro. Do not use directly.
+    #[doc(hidden)]
     pub fn hexf64_impl(input: &str) -> String {
         let lit = syn::parse::string(input).expect("hexf64! requires a single string literal");
         match hexf_parse::parse_hexf64(&lit.value, true) {
