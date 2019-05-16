@@ -1,0 +1,20 @@
+[package]
+name = "hexf-format"
+version = "0.2.0"
+authors = ["Jeong YunWon <jeong+hexf@youknowone.org>"]
+
+description = "Format hexadecimal floats (see also hexf)"
+homepage = "https://github.com/lifthrasiir/hexf"
+documentation = "https://docs.rs/hexf-format/"
+repository = "https://github.com/lifthrasiir/hexf"
+license = "CC0-1.0"
+
+edition = "2018"
+
+[dependencies]
+num-traits = "0.2"
+
+[dev-dependencies]
+rand = "0.5"
+hexf-parse = { version = "0.2.0", path = "../parse/" }
+
