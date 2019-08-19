@@ -104,48 +104,45 @@ fn parse(s: &[u8], allow_underscore: bool) -> Result<(bool, u64, isize), ParseHe
         acc = acc << 4 | digit as u64;
     }
 
-    // \.
-    let mut s = match s.split_first() {
-        Some((&b'.', s)) => s,
-        _ => return Err(INVALID),
-    };
-
-    // \.([0-9a-fA-F][0-9a-fA-F_]*)?
+    // (\.[0-9a-fA-F][0-9a-fA-F_]*)?
     // we want to ignore trailing zeroes but shifting at each digit will overflow first.
     // therefore we separately count the number of zeroes and flush it on non-zero digits.
     let mut nfracs = 0isize; // this is suboptimal but also practical, see below
     let mut nzeroes = 0isize;
     let mut frac_digit_seen = false;
-    loop {
-        let (s_, digit) = match s.split_first() {
-            Some((&c @ b'0'..=b'9', s)) => (s, c - b'0'),
-            Some((&c @ b'a'..=b'f', s)) => (s, c - b'a' + 10),
-            Some((&c @ b'A'..=b'F', s)) => (s, c - b'A' + 10),
-            Some((&b'_', s_)) if allow_underscore && frac_digit_seen => {
-                s = s_;
-                continue;
+    if s.starts_with(b".") {
+        s = &s[1..];
+        loop {
+            let (s_, digit) = match s.split_first() {
+                Some((&c @ b'0'..=b'9', s)) => (s, c - b'0'),
+                Some((&c @ b'a'..=b'f', s)) => (s, c - b'a' + 10),
+                Some((&c @ b'A'..=b'F', s)) => (s, c - b'A' + 10),
+                Some((&b'_', s_)) if allow_underscore && frac_digit_seen => {
+                    s = s_;
+                    continue;
+                }
+                _ => break,
+            };
+
+            s = s_;
+            frac_digit_seen = true;
+
+            if digit == 0 {
+                nzeroes = nzeroes.checked_add(1).ok_or(INEXACT)?;
+            } else {
+                // flush nzeroes
+                let nnewdigits = nzeroes.checked_add(1).ok_or(INEXACT)?;
+                nfracs = nfracs.checked_add(nnewdigits).ok_or(INEXACT)?;
+                nzeroes = 0;
+
+                // if the accumulator is non-zero, the shift cannot exceed 64
+                // (therefore the number of new digits cannot exceed 16).
+                // this will catch e.g. `0.40000....00001` with sufficiently many zeroes
+                if acc != 0 && (nnewdigits >= 16 || acc >> (64 - nnewdigits * 4) != 0) {
+                    return Err(INEXACT);
+                }
+                acc = acc << (nnewdigits * 4) | digit as u64;
             }
-            _ => break,
-        };
-
-        s = s_;
-        frac_digit_seen = true;
-
-        if digit == 0 {
-            nzeroes = nzeroes.checked_add(1).ok_or(INEXACT)?;
-        } else {
-            // flush nzeroes
-            let nnewdigits = nzeroes.checked_add(1).ok_or(INEXACT)?;
-            nfracs = nfracs.checked_add(nnewdigits).ok_or(INEXACT)?;
-            nzeroes = 0;
-
-            // if the accumulator is non-zero, the shift cannot exceed 64
-            // (therefore the number of new digits cannot exceed 16).
-            // this will catch e.g. `0.40000....00001` with sufficiently many zeroes
-            if acc != 0 && (nnewdigits >= 16 || acc >> (64 - nnewdigits * 4) != 0) {
-                return Err(INEXACT);
-            }
-            acc = acc << (nnewdigits * 4) | digit as u64;
         }
     }
 
@@ -227,8 +224,22 @@ fn test_parse() {
     assert_eq!(parse(b"0xAbC.p1", false), Ok((false, 0xabc, 1)));
     assert_eq!(parse(b"0x0.7p1", false), Ok((false, 0x7, 1 - 4)));
     assert_eq!(parse(b"0x.dEfP-1", false), Ok((false, 0xdef, -1 - 12)));
+    assert_eq!(parse(b"0x.p1", false), Err(INVALID));
     assert_eq!(parse(b"0x.P1", false), Err(INVALID));
-    assert_eq!(parse(b"0x0P1", false), Err(INVALID));
+    assert_eq!(parse(b"0xp1", false), Err(INVALID));
+    assert_eq!(parse(b"0xP1", false), Err(INVALID));
+    assert_eq!(parse(b"0x0p", false), Err(INVALID));
+    assert_eq!(parse(b"0xp", false), Err(INVALID));
+    assert_eq!(parse(b"0x.p", false), Err(INVALID));
+    assert_eq!(parse(b"0x0p1", false), Ok((false, 0, 0)));
+    assert_eq!(parse(b"0x0P1", false), Ok((false, 0, 0)));
+    assert_eq!(parse(b"0x0.p1", false), Ok((false, 0, 0)));
+    assert_eq!(parse(b"0x0.P1", false), Ok((false, 0, 0)));
+    assert_eq!(parse(b"0x0.0p1", false), Ok((false, 0, 0)));
+    assert_eq!(parse(b"0x0.0P1", false), Ok((false, 0, 0)));
+    assert_eq!(parse(b"0x.0p1", false), Ok((false, 0, 0)));
+    assert_eq!(parse(b"0x.0P1", false), Ok((false, 0, 0)));
+    assert_eq!(parse(b"0x0p0", false), Ok((false, 0, 0)));
     assert_eq!(parse(b"0x0.p999999999", false), Ok((false, 0, 0)));
     assert_eq!(
         parse(b"0x0.p99999999999999999999999999999", false),
@@ -269,6 +280,15 @@ fn test_parse() {
     assert_eq!(parse(b"-0x____.1_4___p+___5___", true), Err(INVALID));
     assert_eq!(parse(b"-0x3____.____p+___5___", true), Err(INVALID));
     assert_eq!(parse(b"-0x3____.1_4___p+______", true), Err(INVALID));
+    assert_eq!(parse(b"0x_p0", false), Err(INVALID));
+    assert_eq!(parse(b"0x_0p0", true), Err(INVALID));
+    assert_eq!(parse(b"0x_p0", true), Err(INVALID));
+    assert_eq!(parse(b"0x._p0", true), Err(INVALID));
+    assert_eq!(parse(b"0x._0p0", true), Err(INVALID));
+    assert_eq!(parse(b"0x0._0p0", true), Err(INVALID));
+    assert_eq!(parse(b"0x0_p0", true), Ok((false, 0, 0)));
+    assert_eq!(parse(b"0x.0_p0", true), Ok((false, 0, 0)));
+    assert_eq!(parse(b"0x0.0_p0", true), Ok((false, 0, 0)));
 }
 
 macro_rules! define_convert {
