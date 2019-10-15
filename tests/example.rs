@@ -1,4 +1,5 @@
-#[macro_use] extern crate hexf;
+#[macro_use]
+extern crate hexf;
 
 use std::f64;
 

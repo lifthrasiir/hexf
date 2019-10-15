@@ -1,8 +1,9 @@
 //! Support library for `hexf`. Do not use directly.
 
-#[macro_use] extern crate proc_macro_hack;
-extern crate syn;
+#[macro_use]
+extern crate proc_macro_hack;
 extern crate hexf_parse;
+extern crate syn;
 
 proc_macro_expr_impl! {
     /// Support function for `hexf32!` macro. Do not use directly.
@@ -27,4 +28,3 @@ proc_macro_expr_impl! {
         }
     }
 }
-
