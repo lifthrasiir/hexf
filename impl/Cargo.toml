@@ -1,6 +1,6 @@
 [package]
 name = "hexf-impl"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Kang Seonghoon <public+rust@mearie.org>"]
 
 description = "Hexadecimal float support for Rust (auxiliary crate; see also hexf)"
@@ -15,5 +15,4 @@ proc-macro = true
 
 [dependencies]
 syn = "1.0.41"
-hexf-parse = { version = "0.1.0", path = "../parse/" }
-
+hexf-parse = { version = "0.2.0", path = "../parse/" }
