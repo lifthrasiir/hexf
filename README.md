@@ -11,10 +11,10 @@
 [docsrs-image]: https://docs.rs/hexf/badge.svg
 [docsrs]: https://docs.rs/hexf/
 
-Hexadecimal float support for Rust 1.15 or later.
+Hexadecimal float support for Rust 1.45 or later.
 
 ```rust
-#[macro_use] extern crate hexf;
+use hexf::hexf64;
 
 assert_eq!(hexf64!("0x1.999999999999ap-4"), 0.1f64);
 ```
