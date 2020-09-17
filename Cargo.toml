@@ -9,12 +9,12 @@ documentation = "https://docs.rs/hexf/"
 repository = "https://github.com/lifthrasiir/hexf"
 readme = "README.md"
 license = "CC0-1.0"
+edition = "2018"
 
 [workspace]
 members = ["parse/", "impl/"]
 
 [dependencies]
-proc-macro-hack = "0.3.3"
 hexf-parse = { version = "0.1.0", path = "parse/" }
 hexf-impl = { version = "0.1.0", path = "impl/" }
 

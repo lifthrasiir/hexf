@@ -8,12 +8,12 @@ homepage = "https://github.com/lifthrasiir/hexf"
 documentation = "https://docs.rs/hexf/"
 repository = "https://github.com/lifthrasiir/hexf"
 license = "CC0-1.0"
+edition = "2018"
 
 [lib]
 proc-macro = true
 
 [dependencies]
-proc-macro-hack = "0.3.3"
-syn = "0.15"
+syn = "1.0.41"
 hexf-parse = { version = "0.1.0", path = "../parse/" }
 

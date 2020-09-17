@@ -8,4 +8,4 @@ homepage = "https://github.com/lifthrasiir/hexf"
 documentation = "https://docs.rs/hexf-parse/"
 repository = "https://github.com/lifthrasiir/hexf"
 license = "CC0-1.0"
-
+edition = "2018"
