@@ -1,4 +1,13 @@
-//! Support library for `hexf`. Do not use directly.
+//! Hexadecimal float support for Rust 1.15 or later.
+//!
+//! ```rust
+//! use hexf::{hexf32, hexf64};
+//!
+//! # fn main() {
+//! assert_eq!(hexf32!("0x1.99999ap-4"), 0.1f32);
+//! assert_eq!(hexf64!("0x1.999999999999ap-4"), 0.1f64);
+//! # }
+//! ```
 
 use proc_macro::TokenStream;
 
