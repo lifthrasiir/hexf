@@ -12,9 +12,12 @@ license = "CC0-1.0"
 edition = "2018"
 
 [workspace]
-members = ["parse/", "impl/"]
+members = ["parse/"]
+
+[lib]
+proc-macro = true
 
 [dependencies]
 hexf-parse = { version = "0.2.0", path = "parse/" }
-hexf-impl = { version = "0.2.0", path = "impl/" }
+syn = "1.0.41"
 
