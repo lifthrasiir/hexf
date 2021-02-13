@@ -1,3 +1,5 @@
+#![allow(clippy::float_cmp)]
+
 use hexf::{hexf32, hexf64};
 
 use std::f64;
@@ -7,6 +9,13 @@ fn basic() {
     assert_eq!(hexf32!("0x1.99999ap-4"), 0.1f32);
     assert_eq!(hexf64!("0x1.999999999999ap-4"), 0.1f64);
     assert_eq!(hexf64!("0x1.999999999998ap-4"), 0.1f64 - f64::EPSILON);
+}
+
+#[test]
+fn negative() {
+    assert_eq!(hexf32!("-0x1.99999ap-4"), -0.1f32);
+    assert_eq!(hexf64!("-0x1.999999999999ap-4"), -0.1f64);
+    assert_eq!(hexf64!("-0x1.999999999998ap-4"), -0.1f64 + f64::EPSILON);
 }
 
 #[test]
