@@ -19,5 +19,5 @@ proc-macro = true
 
 [dependencies]
 hexf-parse = { version = "0.2.0", path = "parse/" }
-syn = "1.0.41"
+syn = { version = "1.0.41", default-features = false, features = ["parsing", "proc-macro"] }
 
