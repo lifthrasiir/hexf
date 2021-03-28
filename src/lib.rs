@@ -27,7 +27,11 @@ pub fn hexf32(input: TokenStream) -> TokenStream {
         Ok(v) => format!("{:?}f32", v) // should keep the sign even for -0.0
             .parse()
             .expect("formatted a f32 literal"),
-        Err(e) => panic!("hexf32! failed: {}", e),
+        Err(e) => {
+            syn::Error::new(lit.span(), format!("hexf32! failed: {}", e))
+                .to_compile_error()
+                .into()
+        },
     }
 }
 
@@ -47,6 +51,10 @@ pub fn hexf64(input: TokenStream) -> TokenStream {
         Ok(v) => format!("{:?}f64", v) // should keep the sign even for -0.0
             .parse()
             .expect("formatted a f64 literal"),
-        Err(e) => panic!("hexf64! failed: {}", e),
+        Err(e) => {
+            syn::Error::new(lit.span(), format!("hexf64! failed: {}", e))
+                .to_compile_error()
+                .into()
+        },
     }
 }
