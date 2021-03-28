@@ -289,6 +289,10 @@ fn test_parse() {
     assert_eq!(parse(b"0x0_p0", true), Ok((false, 0, 0)));
     assert_eq!(parse(b"0x.0_p0", true), Ok((false, 0, 0)));
     assert_eq!(parse(b"0x0.0_p0", true), Ok((false, 0, 0)));
+
+    // issues
+    // #11 (https://github.com/lifthrasiir/hexf/issues/11)
+    assert_eq!(parse(b"0x1p-149", false), parse(b"0x1.0p-149", false));
 }
 
 macro_rules! define_convert {
