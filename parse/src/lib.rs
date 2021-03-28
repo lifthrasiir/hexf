@@ -138,10 +138,13 @@ fn parse(s: &[u8], allow_underscore: bool) -> Result<(bool, u64, isize), ParseHe
                 // if the accumulator is non-zero, the shift cannot exceed 64
                 // (therefore the number of new digits cannot exceed 16).
                 // this will catch e.g. `0.40000....00001` with sufficiently many zeroes
-                if acc != 0 && (nnewdigits >= 16 || acc >> (64 - nnewdigits * 4) != 0) {
-                    return Err(INEXACT);
+                if acc != 0 {
+                    if nnewdigits >= 16 || acc >> (64 - nnewdigits * 4) != 0 {
+                        return Err(INEXACT);
+                    }
+                    acc = acc << (nnewdigits * 4);
                 }
-                acc = acc << (nnewdigits * 4) | digit as u64;
+                acc |= digit as u64;
             }
         }
     }
@@ -520,4 +523,11 @@ pub fn parse_hexf32(s: &str, allow_underscore: bool) -> Result<f32, ParseHexfErr
 pub fn parse_hexf64(s: &str, allow_underscore: bool) -> Result<f64, ParseHexfError> {
     let (negative, mantissa, exponent) = parse(s.as_bytes(), allow_underscore)?;
     convert_hexf64(negative, mantissa, exponent)
+}
+
+#[test]
+fn test_parse_hexf() {
+    // issues
+    // #6 (https://github.com/lifthrasiir/hexf/issues/6)
+    assert!(parse_hexf64("0x.000000000000000000102", false).is_err());
 }
