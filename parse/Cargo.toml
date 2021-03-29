@@ -1,6 +1,6 @@
 [package]
 name = "hexf-parse"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Kang Seonghoon <public+rust@mearie.org>"]
 
 description = "Parses hexadecimal floats (see also hexf)"
