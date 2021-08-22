@@ -1,4 +1,4 @@
-//! Hexadecimal float support for Rust 1.45 or later.
+//! Hexadecimal float support for Rust 1.43 or later.
 //!
 //! ```rust
 //! use hexf::{hexf32, hexf64};
