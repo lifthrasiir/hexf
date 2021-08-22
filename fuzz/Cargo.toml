@@ -1,0 +1,28 @@
+
+[package]
+name = "hexf-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2018"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+libc = "0.2"
+errno = "0.2"
+
+[dependencies.hexf-parse]
+path = "../parse/"
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "hexf_parse"
+path = "fuzz_targets/hexf_parse.rs"
+test = false
+doc = false
