@@ -3,7 +3,7 @@
 use std::{ffi::CString, ptr};
 
 use errno::{errno, set_errno, Errno};
-use libc::{c_char, strtod};
+use libc::{c_char, strtod, strtof};
 use libfuzzer_sys::{arbitrary::Arbitrary, fuzz_target};
 
 use hexf_parse::{parse_hexf32, parse_hexf64};
@@ -72,10 +72,9 @@ fuzz_target!(|data: (TargetType, bool, String)| {
 
     match target_type {
         TargetType::F32 => {
-            let _result = parse_hexf32(&string_to_parse, allow_underscore);
+            let result = parse_hexf32(&string_to_parse, allow_underscore);
 
-            // TODO: add verification with strtof for parse_hexf32 once the libc crate has strtof
-            // verify_with_strto_fn!(parse_hexf32, strtof, string_to_parse, result);
+            verify_with_strto_fn!(parse_hexf32, strtof, string_to_parse, result);
         }
         TargetType::F64 => {
             let result = parse_hexf64(&string_to_parse, allow_underscore);

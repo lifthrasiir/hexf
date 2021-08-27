@@ -11,7 +11,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 arbitrary = { version = "1", features = ["derive"] }
-libc = "0.2"
+libc = "0.2.101"
 errno = "0.2"
 
 [dependencies.hexf-parse]
