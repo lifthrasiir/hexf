@@ -340,7 +340,7 @@ macro_rules! define_convert {
                     mantissa = -mantissa;
                 }
                 // yes, powi somehow does not work!
-                Ok(mantissa * (2.0 as $f).powf(exponent as $f))
+                Ok(mantissa * libm::exp2(exponent as f64) as $f)
             } else {
                 Err(INEXACT)
             }
