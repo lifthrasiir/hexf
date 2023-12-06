@@ -1,11 +1,8 @@
 # hexf
 
-[![Chrono on Travis CI][travis-image]][travis]
-[![Chrono on crates.io][cratesio-image]][cratesio]
-[![Chrono on docs.rs][docsrs-image]][docsrs]
+[![Hexf on crates.io][cratesio-image]][cratesio]
+[![Hexf on docs.rs][docsrs-image]][docsrs]
 
-[travis-image]: https://travis-ci.org/lifthrasiir/hexf.svg?branch=master
-[travis]: https://travis-ci.org/lifthrasiir/hexf
 [cratesio-image]: https://img.shields.io/crates/v/hexf.svg
 [cratesio]: https://crates.io/crates/hexf
 [docsrs-image]: https://docs.rs/hexf/badge.svg
