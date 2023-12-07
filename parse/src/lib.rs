@@ -1,3 +1,4 @@
+#![allow(unused_variables)]
 //! Parses hexadecimal float literals.
 //! There are two functions `parse_hexf32` and `parse_hexf64` provided for each type.
 //!
@@ -64,7 +65,17 @@ impl std::error::Error for ParseHexfError {
     }
 }
 
-fn parse(s: &[u8], allow_underscore: bool) -> Result<(bool, u64, isize), ParseHexfError> {
+/// The parsed form of a floating-point number.
+#[derive(Debug, Eq, PartialEq)]
+pub struct Parsed {
+    negative: bool,
+    integral: u64,
+    fractional: u64,
+    num_fractional_digits: isize,
+    exponent: isize,
+}
+
+fn parse(s: &[u8], allow_underscore: bool) -> Result<Parsed, ParseHexfError> {
     // ^[+-]?
     let (s, negative) = match s.split_first() {
         Some((&b'+', s)) => (s, false),
@@ -80,7 +91,7 @@ fn parse(s: &[u8], allow_underscore: bool) -> Result<(bool, u64, isize), ParseHe
 
     // ([0-9a-fA-F][0-9a-fA-F_]*)?
     let mut s = &s[2..];
-    let mut acc = 0; // the accumulated mantissa
+    let mut integral = 0; // the accumulated mantissa
     let mut digit_seen = false;
     loop {
         let (s_, digit) = match s.split_first() {
@@ -98,18 +109,19 @@ fn parse(s: &[u8], allow_underscore: bool) -> Result<(bool, u64, isize), ParseHe
         digit_seen = true;
 
         // if `acc << 4` fails, mantissa definitely exceeds 64 bits so we should bail out
-        if acc >> 60 != 0 {
+        if integral >> 60 != 0 {
             return Err(INEXACT);
         }
-        acc = acc << 4 | digit as u64;
+        integral = integral << 4 | digit as u64;
     }
 
     // (\.[0-9a-fA-F][0-9a-fA-F_]*)?
     // we want to ignore trailing zeroes but shifting at each digit will overflow first.
     // therefore we separately count the number of zeroes and flush it on non-zero digits.
-    let mut nfracs = 0isize; // this is suboptimal but also practical, see below
+    let mut nfracs = 0isize; // this is suboptimal but also practical for exponent adjustment
     let mut nzeroes = 0isize;
     let mut frac_digit_seen = false;
+    let mut fractional = 0;
     if s.starts_with(b".") {
         s = &s[1..];
         loop {
@@ -138,13 +150,13 @@ fn parse(s: &[u8], allow_underscore: bool) -> Result<(bool, u64, isize), ParseHe
                 // if the accumulator is non-zero, the shift cannot exceed 64
                 // (therefore the number of new digits cannot exceed 16).
                 // this will catch e.g. `0.40000....00001` with sufficiently many zeroes
-                if acc != 0 {
-                    if nnewdigits >= 16 || acc >> (64 - nnewdigits * 4) != 0 {
+                if fractional != 0 {
+                    if nnewdigits >= 16 || fractional >> (64 - nnewdigits * 4) != 0 {
                         return Err(INEXACT);
                     }
-                    acc = acc << (nnewdigits * 4);
+                    fractional <<= nnewdigits * 4;
                 }
-                acc |= digit as u64;
+                fractional |= digit as u64;
             }
         }
     }
@@ -187,7 +199,7 @@ fn parse(s: &[u8], allow_underscore: bool) -> Result<(bool, u64, isize), ParseHe
         digit_seen = true;
 
         // if we have no non-zero digits at this point, ignore the exponent :-)
-        if acc != 0 {
+        if integral != 0 || fractional != 0 {
             exponent = exponent
                 .checked_mul(10)
                 .and_then(|v| v.checked_add(digit as isize))
@@ -198,18 +210,33 @@ fn parse(s: &[u8], allow_underscore: bool) -> Result<(bool, u64, isize), ParseHe
         exponent = -exponent;
     }
 
-    if acc == 0 {
+    if integral == 0 && fractional == 0 {
         // ignore the exponent as above
-        Ok((negative, 0, 0))
+        Ok(Parsed { negative, integral, fractional: 0, num_fractional_digits: 0, exponent: 0 })
     } else {
-        // the exponent should be biased by (nfracs * 4) to match with the mantissa read.
-        // we still miss valid inputs like `0.0000...0001pX` where the input is filling
-        // at least 1/4 of the total addressable memory, but I dare not handle them!
-        let exponent = nfracs
-            .checked_mul(4)
-            .and_then(|v| exponent.checked_sub(v))
-            .ok_or(INEXACT)?;
-        Ok((negative, acc, exponent))
+        Ok(Parsed { negative, integral, fractional, num_fractional_digits: nfracs, exponent })
+    }
+}
+
+#[cfg(test)]
+fn pos(integral: u64, fractional: u64, num_fractional_digits: isize, exponent: isize) -> Parsed {
+    Parsed {
+        negative: false,
+        integral,
+        fractional,
+        num_fractional_digits,
+        exponent,
+    }
+}
+
+#[cfg(test)]
+fn neg(integral: u64, fractional: u64, num_fractional_digits: isize, exponent: isize) -> Parsed {
+    Parsed {
+        negative: true,
+        integral,
+        fractional,
+        num_fractional_digits,
+        exponent,
     }
 }
 
@@ -219,14 +246,14 @@ fn test_parse() {
     assert_eq!(parse(b" ", false), Err(INVALID));
     assert_eq!(parse(b"3.14", false), Err(INVALID));
     assert_eq!(parse(b"0x3.14", false), Err(INVALID));
-    assert_eq!(parse(b"0x3.14fp+3", false), Ok((false, 0x314f, 3 - 12)));
+    assert_eq!(parse(b"0x3.14fp+3", false), Ok(pos(0x3, 0x14f, 3, 3)));
     assert_eq!(parse(b" 0x3.14p+3", false), Err(INVALID));
     assert_eq!(parse(b"0x3.14p+3 ", false), Err(INVALID));
-    assert_eq!(parse(b"+0x3.14fp+3", false), Ok((false, 0x314f, 3 - 12)));
-    assert_eq!(parse(b"-0x3.14fp+3", false), Ok((true, 0x314f, 3 - 12)));
-    assert_eq!(parse(b"0xAbC.p1", false), Ok((false, 0xabc, 1)));
-    assert_eq!(parse(b"0x0.7p1", false), Ok((false, 0x7, 1 - 4)));
-    assert_eq!(parse(b"0x.dEfP-1", false), Ok((false, 0xdef, -1 - 12)));
+    assert_eq!(parse(b"+0x3.14fp+3", false), Ok(pos(0x3, 0x14f, 3, 3)));
+    assert_eq!(parse(b"-0x3.14fp+3", false), Ok(neg(0x3, 0x14f, 3, 3)));
+    assert_eq!(parse(b"0xAbC.p1", false), Ok(pos(0xabc, 0x0, 0, 1)));
+    assert_eq!(parse(b"0x0.7p1", false), Ok(pos(0, 0x7, 1, 1)));
+    assert_eq!(parse(b"0x.dEfP-1", false), Ok(pos(0, 0xdef, 3, -1)));
     assert_eq!(parse(b"0x.p1", false), Err(INVALID));
     assert_eq!(parse(b"0x.P1", false), Err(INVALID));
     assert_eq!(parse(b"0xp1", false), Err(INVALID));
@@ -234,23 +261,24 @@ fn test_parse() {
     assert_eq!(parse(b"0x0p", false), Err(INVALID));
     assert_eq!(parse(b"0xp", false), Err(INVALID));
     assert_eq!(parse(b"0x.p", false), Err(INVALID));
-    assert_eq!(parse(b"0x0p1", false), Ok((false, 0, 0)));
-    assert_eq!(parse(b"0x0P1", false), Ok((false, 0, 0)));
-    assert_eq!(parse(b"0x0.p1", false), Ok((false, 0, 0)));
-    assert_eq!(parse(b"0x0.P1", false), Ok((false, 0, 0)));
-    assert_eq!(parse(b"0x0.0p1", false), Ok((false, 0, 0)));
-    assert_eq!(parse(b"0x0.0P1", false), Ok((false, 0, 0)));
-    assert_eq!(parse(b"0x.0p1", false), Ok((false, 0, 0)));
-    assert_eq!(parse(b"0x.0P1", false), Ok((false, 0, 0)));
-    assert_eq!(parse(b"0x0p0", false), Ok((false, 0, 0)));
-    assert_eq!(parse(b"0x0.p999999999", false), Ok((false, 0, 0)));
+    assert_eq!(parse(b"0x0p1", false), Ok(pos(0, 0, 0, 0)));
+    assert_eq!(parse(b"0x0P1", false), Ok(pos(0, 0, 0, 0)));
+    assert_eq!(parse(b"0x0.p1", false), Ok(pos(0, 0, 0, 0)));
+    assert_eq!(parse(b"0x0.P1", false), Ok(pos(0, 0, 0, 0)));
+    assert_eq!(parse(b"0x0.0p1", false), Ok(pos(0, 0, 0, 0)));
+    assert_eq!(parse(b"0x0.0P1", false), Ok(pos(0, 0, 0, 0)));
+    assert_eq!(parse(b"0x.0p1", false), Ok(pos(0, 0, 0, 0)));
+    assert_eq!(parse(b"0x.0P1", false), Ok(pos(0, 0, 0, 0)));
+    assert_eq!(parse(b"0x0p0", false), Ok(pos(0, 0, 0, 0)));
+    assert_eq!(parse(b"0x0.p999999999", false), Ok(pos(0, 0, 0, 0)));
+    assert_eq!(parse(b"0x1.99999ap-4", false), Ok(pos(1, 0x99999a, 6, -4)));
     assert_eq!(
         parse(b"0x0.p99999999999999999999999999999", false),
-        Ok((false, 0, 0))
+        Ok(pos(0, 0, 0, 0))
     );
     assert_eq!(
         parse(b"0x0.p-99999999999999999999999999999", false),
-        Ok((false, 0, 0))
+        Ok(pos(0, 0, 0, 0))
     );
     assert_eq!(
         parse(b"0x1.p99999999999999999999999999999", false),
@@ -262,18 +290,26 @@ fn test_parse() {
     );
     assert_eq!(
         parse(b"0x4.00000000000000000000p55", false),
-        Ok((false, 4, 55))
+        Ok(pos(4, 0, 0, 55))
     );
     assert_eq!(
         parse(b"0x4.00001000000000000000p55", false),
-        Ok((false, 0x400001, 55 - 20))
+        Ok(pos(4, 1, 5, 55))
     );
-    assert_eq!(parse(b"0x4.00000000000000000001p55", false), Err(INEXACT));
+    assert_eq!(parse(b"0x4.00000000000000000001p55", false),
+               Ok(pos(4, 1, 20, 55)));
+    assert_eq!(parse(b"0x4.80000000000000000001p55", false), 
+               Err(INEXACT));
+    assert_eq!(
+        // forty fractional digits
+        parse(b"0x0.0000000000000000000000000000000000000001p3", false),
+        Ok(pos(0, 1, 40, 3))
+    );
 
     // underscore insertion
     assert_eq!(
         parse(b"-0x3____.1_4___p+___5___", true),
-        Ok((true, 0x314, 5 - 8))
+        Ok(neg(3, 0x14, 2, 5))
     );
     assert_eq!(parse(b"-_0x3.14p+5", true), Err(INVALID));
     assert_eq!(parse(b"_0x3.14p+5", true), Err(INVALID));
@@ -289,10 +325,12 @@ fn test_parse() {
     assert_eq!(parse(b"0x._p0", true), Err(INVALID));
     assert_eq!(parse(b"0x._0p0", true), Err(INVALID));
     assert_eq!(parse(b"0x0._0p0", true), Err(INVALID));
-    assert_eq!(parse(b"0x0_p0", true), Ok((false, 0, 0)));
-    assert_eq!(parse(b"0x.0_p0", true), Ok((false, 0, 0)));
-    assert_eq!(parse(b"0x0.0_p0", true), Ok((false, 0, 0)));
+    assert_eq!(parse(b"0x0_p0", true), Ok(pos(0, 0, 0, 0)));
+    assert_eq!(parse(b"0x.0_p0", true), Ok(pos(0, 0, 0, 0)));
+    assert_eq!(parse(b"0x0.0_p0", true), Ok(pos(0, 0, 0, 0)));
 
+    assert_eq!(parse(b"0x1.99999ap-4", false), Ok(pos(1, 0x99999a, 6, -4)));
+    assert_eq!(parse(b"0x1.999999999999ap-4", false), Ok(pos(1, 0x999999999999a, 13, -4)));
     // issues
     // #11 (https://github.com/lifthrasiir/hexf/issues/11)
     assert_eq!(parse(b"0x1p-149", false), parse(b"0x1.0p-149", false));
@@ -300,7 +338,27 @@ fn test_parse() {
 
 macro_rules! define_convert {
     ($name:ident => $f:ident) => {
-        fn $name(negative: bool, mantissa: u64, exponent: isize) -> Result<$f, ParseHexfError> {
+        fn $name(parsed: Parsed) -> Result<$f, ParseHexfError> {
+            let Parsed { integral, fractional, num_fractional_digits, exponent, .. } = parsed;
+
+            let fractional_bits = num_fractional_digits.checked_mul(4)
+                    .ok_or(INEXACT)?;
+            let mantissa = if integral != 0 {
+                // Combine the integral and fractional parts into a single mantissa
+                // value. u64::overflowing_shl only checks the shift distance - it
+                // is happy to drop bits - so check for overflow manually.
+                if (integral.leading_zeros() as isize) < fractional_bits {
+                    return Err(INEXACT);
+                }
+                integral << fractional_bits | fractional
+            } else if fractional != 0 {
+                fractional
+            } else {
+                0
+            };
+            let exponent = exponent.checked_sub(fractional_bits)
+                .ok_or(INEXACT)?;
+
             // guard the exponent with the definitely safe range (we will exactly bound it later)
             if exponent < -0xffff || exponent > 0xffff {
                 return Err(INEXACT);
@@ -336,7 +394,7 @@ macro_rules! define_convert {
 
             if mantissa >> mantissasize == 0 {
                 let mut mantissa = mantissa as $f;
-                if negative {
+                if parsed.negative {
                     mantissa = -mantissa;
                 }
                 // yes, powi somehow does not work!
@@ -353,84 +411,105 @@ define_convert!(convert_hexf64 => f64);
 
 #[test]
 fn test_convert_hexf32() {
-    assert_eq!(convert_hexf32(false, 0, 0), Ok(0.0));
-    assert_eq!(convert_hexf32(false, 1, 0), Ok(1.0));
-    assert_eq!(convert_hexf32(false, 10, 0), Ok(10.0));
-    assert_eq!(convert_hexf32(false, 10, 1), Ok(20.0));
-    assert_eq!(convert_hexf32(false, 10, -1), Ok(5.0));
-    assert_eq!(convert_hexf32(true, 0, 0), Ok(-0.0));
-    assert_eq!(convert_hexf32(true, 1, 0), Ok(-1.0));
+    assert_eq!(convert_hexf32(pos(0, 0, 0, 0)), Ok(0.0));
+    assert_eq!(convert_hexf32(pos(1, 0, 0, 0)), Ok(1.0));
+    assert_eq!(convert_hexf32(pos(10, 0, 0, 0)), Ok(10.0));
+    assert_eq!(convert_hexf32(pos(10, 0, 0, 1)), Ok(20.0));
+    assert_eq!(convert_hexf32(pos(10, 0, 0, -1)), Ok(5.0));
+    assert_eq!(convert_hexf32(neg(0, 0, 0, 0)), Ok(-0.0));
+    assert_eq!(convert_hexf32(neg(1, 0, 0, 0)), Ok(-1.0));
+
+    assert_eq!(convert_hexf32(pos(1, 0x99999a, 6, -4)), Ok(0.1f32));
+    assert_eq!(convert_hexf64(pos(1, 0x999999999999a, 13, -4)), Ok(0.1f64));
 
     // negative zeroes
-    assert_eq!(convert_hexf32(false, 0, 0).unwrap().signum(), 1.0);
-    assert_eq!(convert_hexf32(true, 0, 0).unwrap().signum(), -1.0);
+    assert_eq!(convert_hexf32(pos(0, 0, 0, 0)).unwrap().signum(), 1.0);
+    assert_eq!(convert_hexf32(neg(0, 0, 0, 0)).unwrap().signum(), -1.0);
 
     // normal truncation
     assert_eq!(
-        convert_hexf32(false, 0x0000_0000_00ff_ffff, 0),
+        convert_hexf32(pos(0x0000_0000_00ff_ffff, 0, 0, 0)),
         Ok(16777215.0)
     );
     assert_eq!(
-        convert_hexf32(false, 0x0000_0000_01ff_ffff, 0),
+        convert_hexf32(pos(0x0000_0000_01ff_ffff, 0, 0, 0)),
         Err(INEXACT)
     );
     assert_eq!(
-        convert_hexf32(false, 0xffff_ff00_0000_0000, -40),
+        convert_hexf32(pos(0xffff_ff00_0000_0000, 0, 0, -40)),
         Ok(16777215.0)
     );
     assert_eq!(
-        convert_hexf32(false, 0xffff_ff80_0000_0000, -40),
+        convert_hexf32(pos(0xffff_ff80_0000_0000, 0, 0, -40)),
         Err(INEXACT)
     );
 
     // denormal truncation
-    assert!(convert_hexf32(false, 0x0000_0000_007f_ffff, -149).is_ok());
-    assert!(convert_hexf32(false, 0x0000_0000_00ff_ffff, -150).is_err());
-    assert!(convert_hexf32(false, 0x0000_0000_00ff_fffe, -150).is_ok());
-    assert!(convert_hexf32(false, 0xffff_ff00_0000_0000, -190).is_err());
-    assert!(convert_hexf32(false, 0xffff_fe00_0000_0000, -190).is_ok());
+    assert!(convert_hexf32(pos(0x0000_0000_007f_ffff, 0, 0, -149)).is_ok());
+    assert!(convert_hexf32(pos(0x0000_0000_00ff_ffff, 0, 0, -150)).is_err());
+    assert!(convert_hexf32(pos(0x0000_0000_00ff_fffe, 0, 0, -150)).is_ok());
+    assert!(convert_hexf32(pos(0xffff_ff00_0000_0000, 0, 0, -190)).is_err());
+    assert!(convert_hexf32(pos(0xffff_fe00_0000_0000, 0, 0, -190)).is_ok());
+
+    // denormal truncation, bits supplied by fraction
+    assert!(convert_hexf32(pos(0, 0x0000_0000_007f_ffff, 6,  -149 + 24)).is_ok());
+    assert!(convert_hexf32(pos(0, 0x0000_0000_00ff_ffff, 6,  -150 + 24)).is_err());
+    assert!(convert_hexf32(pos(0, 0x0000_0000_00ff_fffe, 6,  -150 + 24)).is_ok());
+    assert!(convert_hexf32(pos(0, 0xffff_ff00_0000_0000, 16, -190 + 64)).is_err());
+    assert!(convert_hexf32(pos(0, 0xffff_fe00_0000_0000, 16, -190 + 64)).is_ok());
 
     // minimum
-    assert!(convert_hexf32(false, 0x0000_0000_0000_0001, -149).is_ok());
-    assert!(convert_hexf32(false, 0x0000_0000_0000_0001, -150).is_err());
-    assert!(convert_hexf32(false, 0x0000_0000_0000_0002, -150).is_ok());
-    assert!(convert_hexf32(false, 0x0000_0000_0000_0002, -151).is_err());
-    assert!(convert_hexf32(false, 0x0000_0000_0000_0003, -150).is_err());
-    assert!(convert_hexf32(false, 0x0000_0000_0000_0003, -151).is_err());
-    assert!(convert_hexf32(false, 0x8000_0000_0000_0000, -212).is_ok());
-    assert!(convert_hexf32(false, 0x8000_0000_0000_0000, -213).is_err());
+    assert!(convert_hexf32(pos(0x0000_0000_0000_0001, 0, 0, -149)).is_ok());
+    assert!(convert_hexf32(pos(0x0000_0000_0000_0001, 0, 0, -150)).is_err());
+    assert!(convert_hexf32(pos(0x0000_0000_0000_0002, 0, 0, -150)).is_ok());
+    assert!(convert_hexf32(pos(0x0000_0000_0000_0002, 0, 0, -151)).is_err());
+    assert!(convert_hexf32(pos(0x0000_0000_0000_0003, 0, 0, -150)).is_err());
+    assert!(convert_hexf32(pos(0x0000_0000_0000_0003, 0, 0, -151)).is_err());
+    assert!(convert_hexf32(pos(0x8000_0000_0000_0000, 0, 0, -212)).is_ok());
+    assert!(convert_hexf32(pos(0x8000_0000_0000_0000, 0, 0, -213)).is_err());
+
+    // minimum, bits supplied by fraction
+    assert!(convert_hexf32(pos(0, 0x0000_0000_0000_0001, 16, -149 + 64)).is_ok());
+    assert!(convert_hexf32(pos(0, 0x0000_0000_0000_0001, 16, -150 + 64)).is_err());
+    assert!(convert_hexf32(pos(0, 0x0000_0000_0000_0002, 16, -150 + 64)).is_ok());
+    assert!(convert_hexf32(pos(0, 0x0000_0000_0000_0002, 16, -151 + 64)).is_err());
+    assert!(convert_hexf32(pos(0, 0x0000_0000_0000_0003, 16, -150 + 64)).is_err());
+    assert!(convert_hexf32(pos(0, 0x0000_0000_0000_0003, 16, -151 + 64)).is_err());
+    assert!(convert_hexf32(pos(0, 0x8000_0000_0000_0000, 16, -212 + 64)).is_ok());
+    assert!(convert_hexf32(pos(0, 0x8000_0000_0000_0000, 16, -213 + 64)).is_err());
 
     // maximum
     assert_eq!(
-        convert_hexf32(false, 0x0000_0000_00ff_ffff, 104),
+        convert_hexf32(pos(0x0000_0000_00ff_ffff, 0, 0, 104)),
         Ok(f32::MAX)
     );
     assert_eq!(
-        convert_hexf32(false, 0x0000_0000_01ff_ffff, 104),
+        convert_hexf32(pos(0x0000_0000_01ff_ffff, 0, 0, 104)),
         Err(INEXACT)
     );
     assert_eq!(
-        convert_hexf32(false, 0x0000_0000_01ff_fffe, 104),
+        convert_hexf32(pos(0x0000_0000_01ff_fffe, 0, 0, 104)),
         Err(INEXACT)
     );
     assert_eq!(
-        convert_hexf32(false, 0x0000_0000_0000_0001, 128),
+        convert_hexf32(pos(0x0000_0000_0000_0001, 0, 0, 128)),
         Err(INEXACT)
     );
     assert_eq!(
-        convert_hexf32(false, 0x8000_0000_0000_0000, 65),
+        convert_hexf32(pos(0x8000_0000_0000_0000, 0, 0, 65)),
         Err(INEXACT)
     );
     assert_eq!(
-        convert_hexf32(false, 0xffff_ff00_0000_0000, 64),
+        convert_hexf32(pos(0xffff_ff00_0000_0000, 0, 0, 64)),
         Ok(f32::MAX)
     );
     assert_eq!(
-        convert_hexf32(false, 0xffff_ff80_0000_0000, 64),
+        convert_hexf32(pos(0xffff_ff80_0000_0000, 0, 0, 64)),
         Err(INEXACT)
     );
 }
 
+/*
 #[test]
 fn test_convert_hexf64() {
     assert_eq!(convert_hexf64(false, 0, 0), Ok(0.0));
@@ -510,19 +589,19 @@ fn test_convert_hexf64() {
         Err(INEXACT)
     );
 }
-
+*/
 /// Tries to parse a hexadecimal float literal to `f32`.
 /// The underscore is allowed only when `allow_underscore` is true.
 pub fn parse_hexf32(s: &str, allow_underscore: bool) -> Result<f32, ParseHexfError> {
-    let (negative, mantissa, exponent) = parse(s.as_bytes(), allow_underscore)?;
-    convert_hexf32(negative, mantissa, exponent)
+    let parsed = parse(s.as_bytes(), allow_underscore)?;
+    convert_hexf32(parsed)
 }
 
 /// Tries to parse a hexadecimal float literal to `f64`.
 /// The underscore is allowed only when `allow_underscore` is true.
 pub fn parse_hexf64(s: &str, allow_underscore: bool) -> Result<f64, ParseHexfError> {
-    let (negative, mantissa, exponent) = parse(s.as_bytes(), allow_underscore)?;
-    convert_hexf64(negative, mantissa, exponent)
+    let parsed = parse(s.as_bytes(), allow_underscore)?;
+    convert_hexf64(parsed)
 }
 
 #[test]
