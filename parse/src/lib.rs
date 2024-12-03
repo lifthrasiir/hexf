@@ -59,8 +59,7 @@ impl fmt::Display for ParseHexfError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for ParseHexfError {
+impl core::error::Error for ParseHexfError {
     fn description(&self) -> &'static str {
         self.text()
     }
