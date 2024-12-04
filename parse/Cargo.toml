@@ -12,3 +12,7 @@ edition = "2018"
 
 [dependencies]
 libm = "0.2.2"
+
+[features]
+default = ["std"]
+std = []
