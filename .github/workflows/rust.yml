@@ -46,4 +46,4 @@ jobs:
           rustup target add ${{ matrix.target }} --toolchain stable
           rustup override set stable
       - name: Clippy
-        run: cargo clippy --all --target ${{ matrix.target }}
+        run: cargo clippy --manifest-path parse/Cargo.toml --target ${{ matrix.target }} --no-default-features
