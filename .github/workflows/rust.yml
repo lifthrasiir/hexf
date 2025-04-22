@@ -24,3 +24,26 @@ jobs:
       run: cargo fmt --all -- --check                                           
     - name: Clippy                                                                
       run: cargo clippy --all
+  
+  no_std:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: WASM Core 1.0
+            target: wasm32v1-none
+          - name: Embedded ARM
+            target: thumbv6m-none-eabi
+    
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          rustup toolchain install stable --no-self-update --profile=minimal --component clippy
+          rustup target add ${{ matrix.target }} --toolchain stable
+          rustup override set stable
+      - name: Clippy
+        run: cargo clippy --all --target ${{ matrix.target }}
