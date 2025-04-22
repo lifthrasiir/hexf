@@ -17,8 +17,7 @@
 //!
 //! The error is reported via an opaque `ParseHexfError` type.
 
-#![no_std]
-
+#![cfg_attr(not(feature = "std"), no_std)]
 use core::{f32, f64, fmt, isize, str};
 
 /// An opaque error type from `parse_hexf32` and `parse_hexf64`.
@@ -60,6 +59,14 @@ impl fmt::Display for ParseHexfError {
     }
 }
 
+#[cfg(feature = "std")]
+impl std::error::Error for ParseHexfError {
+    fn description(&self) -> &'static str {
+        self.text()
+    }
+}
+
+#[cfg(not(feature = "std"))]
 impl core::error::Error for ParseHexfError {
     fn description(&self) -> &'static str {
         self.text()
