@@ -36,3 +36,12 @@ fn syntax() {
     assert_eq!(hexf32!(r##"-0x2.8p0"##), -2.5f32);
     assert_eq!(hexf64!(r##"-0x2.8p0"##), -2.5f64);
 }
+
+#[test]
+#[rustfmt::skip]
+fn syntax_whitespace() {
+    assert_eq!(hexf32!(  "0x1.0p0"  ), 1.0f32);
+    assert_eq!(hexf64!(
+        "-0x1.8p0"
+    ), -1.5f64);
+}
