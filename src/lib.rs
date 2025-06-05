@@ -9,7 +9,10 @@
 //! # }
 //! ```
 
-use proc_macro::TokenStream;
+mod tokens;
+
+use proc_macro::{Literal, TokenStream, TokenTree};
+use tokens::{compile_error_stream, parse_stream};
 
 /// Expands to a `f32` value with given hexadecimal representation.
 ///
@@ -22,15 +25,10 @@ use proc_macro::TokenStream;
 /// ```
 #[proc_macro]
 pub fn hexf32(input: TokenStream) -> TokenStream {
-    let lit = syn::parse_macro_input!(input as syn::LitStr);
-    match hexf_parse::parse_hexf32(&lit.value(), true) {
-        Ok(v) => format!("{:?}f32", v) // should keep the sign even for -0.0
-            .parse()
-            .expect("formatted a f32 literal"),
-        Err(e) => syn::Error::new(lit.span(), format!("hexf32! failed: {}", e))
-            .to_compile_error()
-            .into(),
-    }
+    parse_stream(input, |s, span| match hexf_parse::parse_hexf32(s, true) {
+        Ok(v) => TokenTree::Literal(Literal::f32_suffixed(v)).into(),
+        Err(e) => compile_error_stream(&format!("hexf32! failed: {}", e), span),
+    })
 }
 
 /// Expands to a `f64` value with given hexadecimal representation.
@@ -44,13 +42,8 @@ pub fn hexf32(input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro]
 pub fn hexf64(input: TokenStream) -> TokenStream {
-    let lit = syn::parse_macro_input!(input as syn::LitStr);
-    match hexf_parse::parse_hexf64(&lit.value(), true) {
-        Ok(v) => format!("{:?}f64", v) // should keep the sign even for -0.0
-            .parse()
-            .expect("formatted a f64 literal"),
-        Err(e) => syn::Error::new(lit.span(), format!("hexf64! failed: {}", e))
-            .to_compile_error()
-            .into(),
-    }
+    parse_stream(input, |s, span| match hexf_parse::parse_hexf64(s, true) {
+        Ok(v) => TokenTree::Literal(Literal::f64_suffixed(v)).into(),
+        Err(e) => compile_error_stream(&format!("hexf64! failed: {}", e), span),
+    })
 }
