@@ -9,6 +9,10 @@
 //! # }
 //! ```
 
+#![no_std]
+extern crate alloc;
+use alloc::format;
+
 use proc_macro::TokenStream;
 
 /// Expands to a `f32` value with given hexadecimal representation.
